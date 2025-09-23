@@ -21,7 +21,7 @@ from signals import SignalGenerator, SignalDatabase
 class Dolpha1Strategy:
     def __init__(
         self,
-        symbol: str = "106W09",
+        symbol: str = "106W12",
         atr_period: int = 10,
         rolling_move: int = 5,
         band_multiplier: float = 1.0,
@@ -138,7 +138,7 @@ async def main():
         setup_logging(config.config_dir)
 
         parser = argparse.ArgumentParser(prog="dolpha1", add_help=True)
-        parser.add_argument("--symbol", type=str, default="106W09")
+        parser.add_argument("--symbol", type=str, default="106W12")
         parser.add_argument("--atr-period", type=int, default=10)
         parser.add_argument("--rolling-move", type=int, default=5)
         parser.add_argument("--band-multiplier", type=float, default=1.0)

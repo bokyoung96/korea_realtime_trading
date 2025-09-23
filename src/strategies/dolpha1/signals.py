@@ -129,6 +129,7 @@ class SignalGenerator:
             }
             
         latest_row = valid_rows.iloc[-1]
+        previous_row = valid_rows.iloc[-(1 + self.observe_interval_minutes)]  # (HJ) ADJ: trade_signal 진입 이후 시그널 정지 위한 previous_monitor_signal 계산용 OHLCV 1분봉 데이터 (latest_row 보다 observe_interval_minutes 한 단위(트레이딩 시그널 측정 기준) 이전 분봉)
         
         current_time = TimeService.now_kst_naive()
         is_observe_time = (current_time.minute % self.observe_interval_minutes == 0)
@@ -144,9 +145,37 @@ class SignalGenerator:
             if not self.use_vwap or latest_row.close < latest_row.vwap:
                 monitor_signal = -1
                 reason = "band_cross_down"
+
+        previous_monitor_signal = 0     # (HJ) ADJ: trading_signal 시그널 정지 위한 직전 분봉의 monitor_signal (초기값)
+        if previous_row.close > previous_row.UB:    # (HJ) ADJ: previouse_row 는 시그널 없다가 -> latest_row 에 시그널 생겼을 때만으로 수정
+            if not self.use_vwap or previous_row.close > previous_row.vwap:
+                previous_monitor_signal = 1
+        elif previous_row.close < previous_row.LB:    # (HJ) ADJ: previouse_row 는 시그널 없다가 -> latest_row 에 시그널 생겼을 때만으로 수정
+            if not self.use_vwap or previous_row.close < previous_row.vwap:
+                previous_monitor_signal = -1
         
-        trade_signal = monitor_signal if is_observe_time else 0
-                
+        trade_signal = (monitor_signal - previous_monitor_signal) if is_observe_time else 0     # (HJ) ADJ: (1) signal 진입 시에만 한번 포지션 잡고, (2) signal 탈출 시에만 한번 반대 포지션 잡도록 수정!
+        ### (HJ) DOCS: Execution 단(객체)에서 Signal 의 monitor(포지션) 값과 실제 계좌잔고 포지션과 동일한지 항상 체크 필요!
+        ### (HJ) DOCS: Signal 의 monitor(포지션) 값과 계좌잔고 포지션이 다른 경우 처리방법 고민 후 Execution 단에 반영필요!
+        
+        # TEMP: 디버깅용
+        temp_dict = {
+            'monitor_signal': monitor_signal,
+            'previous_monitor_signal': previous_monitor_signal, 
+            'trade_signal': trade_signal, 
+            'reason': reason,
+            'ub': float(latest_row.UB),
+            'lb': float(latest_row.LB),
+            'current_price': float(latest_row.close),
+            'is_observe_time': is_observe_time,
+            'atr': float(latest_row.atr),
+            'move_open': float(latest_row.move_open),
+            'sigma_open': float(latest_row.sigma_open),
+            'vwap': float(latest_row.vwap),
+            'min_from_open': float(latest_row.min_from_open)
+        }
+        return valid_rows, latest_row, previous_row, temp_dict
+
         return {
             'monitor_signal': monitor_signal,
             'trade_signal': trade_signal, 
