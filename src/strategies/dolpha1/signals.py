@@ -159,22 +159,22 @@ class SignalGenerator:
         ### (HJ) DOCS: Signal 의 monitor(포지션) 값과 계좌잔고 포지션이 다른 경우 처리방법 고민 후 Execution 단에 반영필요!
         
         # TEMP: 디버깅용
-        temp_dict = {
-            'monitor_signal': monitor_signal,
-            'previous_monitor_signal': previous_monitor_signal, 
-            'trade_signal': trade_signal, 
-            'reason': reason,
-            'ub': float(latest_row.UB),
-            'lb': float(latest_row.LB),
-            'current_price': float(latest_row.close),
-            'is_observe_time': is_observe_time,
-            'atr': float(latest_row.atr),
-            'move_open': float(latest_row.move_open),
-            'sigma_open': float(latest_row.sigma_open),
-            'vwap': float(latest_row.vwap),
-            'min_from_open': float(latest_row.min_from_open)
-        }
-        return valid_rows, latest_row, previous_row, temp_dict
+        # temp_dict = {
+        #     'monitor_signal': monitor_signal,
+        #     'previous_monitor_signal': previous_monitor_signal, 
+        #     'trade_signal': trade_signal, 
+        #     'reason': reason,
+        #     'ub': float(latest_row.UB),
+        #     'lb': float(latest_row.LB),
+        #     'current_price': float(latest_row.close),
+        #     'is_observe_time': is_observe_time,
+        #     'atr': float(latest_row.atr),
+        #     'move_open': float(latest_row.move_open),
+        #     'sigma_open': float(latest_row.sigma_open),
+        #     'vwap': float(latest_row.vwap),
+        #     'min_from_open': float(latest_row.min_from_open)
+        # }
+        # return valid_rows, latest_row, previous_row, temp_dict
 
         return {
             'monitor_signal': monitor_signal,
