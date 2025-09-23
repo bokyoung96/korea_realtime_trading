@@ -12,6 +12,10 @@ db_config.json
 token.dat
 token.json
 access_token.json
+# (HJ) 계좌별 access_token-<ACCOUNT_NUMBER>.json 파일 제외 
+access_token*.json
+# (HJ) 계좌별 config-<PRODUCT>.json 파일 제외 
+config*.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -92,6 +96,8 @@ target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+# Jupyter Notebook (HJ) 테스트 파일 숨기기
+*.ipynb
 
 # IPython
 profile_default/
@@ -175,3 +181,6 @@ cython_debug/
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
+
+# (HJ) Backup file
+*.bak

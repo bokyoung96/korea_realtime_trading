@@ -46,7 +46,7 @@ class KISConfig:
         self.polling_interval = config.get("polling_interval", 2)
         self.stock_minute_tr_id = config.get("tr_id", {}).get("stock_minute", "FHKST03010200")
         self.deriv_minute_tr_id = config.get("tr_id", {}).get("deriv_minute", "FHKIF03020200")
-        self.option_chain_tr_id = config.get("tr_id", {}).get("option_chain", "FHlkPIF05030100")
+        self.option_chain_tr_id = config.get("tr_id", {}).get("option_chain", "FHPIF05030100")    # ADJ: "FHlkPIF05030100" > "FHPIF05030100"
         self.deriv_order_tr_id = config.get("tr_id", {}).get("deriv_order", "TTTO1101U")
         self.deriv_order_rvsecncl_tr_id = config.get("tr_id", {}).get("deriv_order_rvsecncl", "TTTO1103U")
         self.deriv_balance_tr_id = config.get("tr_id", {}).get("deriv_balance", "CTFO6118R")
@@ -61,7 +61,7 @@ class KISAuth:
     def __init__(self, config: KISConfig, client: httpx.AsyncClient):
         self._config = config
         self._client = client
-        self._token_file = os.path.join(config.config_dir, "access_token.json")
+        self._token_file = os.path.join(config.config_dir, "access_token-" + self._config.account_number + ".json") # (HJ) ADJ: 계좌별 OAuth 인증요청 따로 해야됨에 따라 인증토큰 관리파일도 계좌별로 따로 생성. (토큰번호는 동일하게 저장되지만, 계좌별로 OAuth 인증요청을 따로 진행해 주어야 해당 토큰을 이용한 API 접근이 허용됨.)
         self._access_token: str | None = None
         self._token_expires_at: datetime | None = None
         self._load_token()
@@ -104,6 +104,7 @@ class KISAuth:
     def _save_token(self):
         try:
             data = {
+                "account_number": self._config.account_number,  # (HJ) ADJ: 계좌별 인증토큰 관리 위한 값 추가
                 "access_token": self._access_token,
                 "expires_at": self._token_expires_at.isoformat() if self._token_expires_at else None
             }
