@@ -4,35 +4,30 @@ import httpx
 import logging
 from datetime import datetime, timedelta
 from dataclasses import dataclass
-import re
 
-from services.time_service import TimeService
 
+def setup_logging(config_dir: str):
+    log_file = os.path.join(config_dir, "kis_api.log")
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s [%(levelname)s] %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
+        handlers=[
+            logging.FileHandler(log_file, encoding='utf-8'),
+            logging.StreamHandler()
+        ]
+    )
 
 # (HJ) ADJ: 일별 로그파일 생성 및 관리 위한 함수 추가. (90일치 로그파일 보관)
-# (HJ) ADJ: 로거별 세팅을 위해 logger 파라미터 추가
-def setup_logging(config_dir: str):
-    """
-    일별 로그 파일을 생성하고 관리합니다.
-    - 로그 파일은 '.log' 디렉터리에 'kis_api_YYYYMMDD.log' 형식으로 저장됩니다.
-    - 로그 파일은 최대 100개까지 유지되며, 가장 오래된 파일부터 삭제됩니다.
-    """
-    log_dir = os.path.join(config_dir, ".log")
+from services.time_service import TimeService
+def setup_logging_daily(config_dir: str):
+    log_dir = os.path.join(config_dir, ".log")  # (HJ) ADJ: 
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
-
-    log_files = [f for f in os.listdir(log_dir) if re.match(r"kis_api_\d{8}\.log", f)]
-    log_files.sort()
-    while len(log_files) >= 100:
-        file_to_delete = log_files.pop(0)
-        os.remove(os.path.join(log_dir, file_to_delete))
-        logging.info(f"🗑️ Old log file deleted: {file_to_delete}")
-
-    now_kst = TimeService.now_kst_naive()
-    today_str = now_kst.date().strftime("%Y%m%d")
+    now_kst = TimeService.now_kst_naive()   # (HJ) ADJ: services.time_service.TimeService 객체 이용하여 KST 기준 현재시간 얻기
+    today_str = now_kst.date().strftime("%Y%m%d")   # (HJ) ADJ: YYYYMMDD 형식의 오늘 날짜 문자열
     log_name = f"kis_api_{today_str}.log"
     log_file = os.path.join(log_dir, log_name)
-
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s [%(levelname)s] %(message)s',

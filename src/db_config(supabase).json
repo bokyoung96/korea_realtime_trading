@@ -1,0 +1,29 @@
+{
+  "database": {
+    "supabase_url": "https://nixwgobfyenxppwzhijg.supabase.co",
+    "supabase_key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5peHdnb2JmeWVueHBwd3poaWpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQzNjI4NzEsImV4cCI6MjA2OTkzODg3MX0.j9-3iTS7suV06ogQMHeUwkmOqYrx7rkSG8Re0MQHgkI",
+    "postgres_url": "postgresql://postgres.nixwgobfyenxppwzhijg:qhrud3861%21@aws-0-ap-northeast-2.pooler.supabase.com:6543/postgres",
+    "pool_settings": {
+      "min_size": 1,
+      "max_size": 10,
+      "server_settings": {
+        "jit": "off"
+      }
+    }
+  },
+  "logging": {
+    "level": "INFO",
+    "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  },
+  "data_retention": {
+    "futures_1m_days": 365,
+    "stocks_1m_days": 365,
+    "option_chain_raw_days": 90,
+    "option_matrices_days": 90,
+    "system_status_days": 365
+  },
+  "batch_settings": {
+    "max_batch_size": 1000,
+    "batch_timeout_seconds": 5
+  }
+}

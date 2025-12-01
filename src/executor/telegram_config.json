@@ -1,0 +1,10 @@
+{
+    "bot_token": {
+        "kamp_alphawave_bot": "7761788397:AAGFRLT5JAXVTnArTcHsfRkAQsJpiIop4BA"
+    }, 
+    "chat_id": {
+        "bot_myself": "5731921643",
+        "alphawave_launchpool": "-1002424995653",
+        "alphawave_dolpha1": "-4841384393"
+    }
+}

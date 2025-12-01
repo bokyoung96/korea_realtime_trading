@@ -6,13 +6,6 @@ import httpx
 import sys
 import os
 
-EXECUTION_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-sys.path.append(EXECUTION_ROOT)
-
-from api_messages.kis.common.request_metadata import RequestMetadata
-from api_messages.kis.common.request_header import RequestHeader
-from api_messages.kis.common.response import Response
-
 
 inquire_balance_metadata = {
     'method': 'GET', 

@@ -19,7 +19,7 @@ class SignalGenerator:
                  rolling_move: int = 5,
                  band_multiplier: float = 1.0,
                  use_vwap: bool = True,
-                 observe_interval_minutes: int = 15):
+                 observe_interval_minutes: int = 5):
         self.atr_period = atr_period
         self.rolling_move = rolling_move
         self.band_multiplier = band_multiplier
@@ -78,9 +78,8 @@ class SignalGenerator:
     def _calculate_sigma_open(self, df: pd.DataFrame) -> pd.Series:
         df['timestamp_local'] = df['timestamp']
 
-        base_open_price = df.groupby('day')['open'].transform('first')
-        # (HJ) COMMENT: 'min_from_open' 컬럼 내용: 기준시작시간(여기선 08:46) 기준으로부터 '몇 분'(몇 번째)인지 인덱스 계산
-        df['min_from_open'] = ((df['timestamp_local'] - df['timestamp_local'].dt.normalize()) / pd.Timedelta(minutes=1)) - 526  # (HJ) DOCS: 526m == 8h 46m (첫 )
+        base_open_price = df.groupby('day')['open'].transform('first')            
+        df['min_from_open'] = ((df['timestamp_local'] - df['timestamp_local'].dt.normalize()) / pd.Timedelta(minutes=1)) - 526  # 08:46
         df['move_open'] = (df['close'] / base_open_price - 1).abs()
         
         df['sigma_open'] = df.groupby('min_from_open')['move_open'].transform(
@@ -103,9 +102,8 @@ class SignalGenerator:
         
         return df
         
-    def get_latest_signal(self, 
-                          df: pd.DataFrame, 
-                          leverage_ratio: float=1.0) -> Dict[str, Any]:
+    def get_latest_signal(self, df: pd.DataFrame) -> Dict[str, Any]:
+        from datetime import datetime
         
         df_with_features = self.create_features(df)
         
@@ -148,45 +146,44 @@ class SignalGenerator:
             if not self.use_vwap or latest_row.close < latest_row.vwap:
                 monitor_signal = -1
         
+        dolpha_signal = monitor_signal - previous_monitor_signal
+        
+        current_time = TimeService.now_kst_naive()
+        is_observe_time = (current_time.minute % self.observe_interval_minutes == 0)
         # (HJ) ADJ: trade_signal 결정 (monitor_signal 변화가 있을 때만 trade_signal 발생하도록 수정)
         # (HJ) TODO: Execution 단(객체)에서 Signal 의 monitor(포지션) 값과 실제 계좌잔고 포지션과 동일한지 항상 체크 필요!
         # (HJ) TODO: Signal 의 monitor(포지션) 값과 계좌잔고 포지션이 다른 경우 처리방법 고민 후 Execution 단에 반영필요!
-        
-        # if (previous_monitor_signal == monitor_signal) or (previous_monitor_signal == 0) or (monitor_signal == 0):
-        #     # (HJ) TOTO: 나중에 레버리지 적용 또는 상황 따른 배팅량 조절 등 고려 시 수정 필요!    
-        if abs(monitor_signal - previous_monitor_signal) == 2:
-            trade_signal = (monitor_signal - previous_monitor_signal) \
-                // abs(monitor_signal - previous_monitor_signal)  # (HJ) ADJ: 기존의 trade_signal 이 2 또는 -2 가 되는 경우 방지 위해 수정
-        else:
-            trade_signal = monitor_signal - previous_monitor_signal
-
-        current_time = TimeService.now_kst_naive()
-        is_observe_time = (current_time.minute % self.observe_interval_minutes == 0)
+        trade_signal = 0
+        if is_observe_time:
+            if dolpha_signal > 0:
+                trade_signal = 1
+            elif dolpha_signal < 0:
+                trade_signal = -1
         
         # (HJ) ADJ: 포지션 변하는 경우의 8 가지 reason
         reason = "none"
-        # trade_signal > 0 인 경우 (일단은 1 또는 2)
-        if (monitor_signal == 1) and (previous_monitor_signal == 0):
-            reason = "Exceed UB from inside(no position)"
-        elif (monitor_signal == 1) and (previous_monitor_signal == -1):
-            reason = "Exceed UB from opposite-outside(short position)"
-        elif (monitor_signal == 0) and (previous_monitor_signal == -1) and (latest_row.close < latest_row.vwap):
-            reason = "Enter LB from outside(short position)"
-        elif (monitor_signal == 0) and (previous_monitor_signal == -1) and (latest_row.close > latest_row.vwap):
-            reason = "Enter VWAP from outside(short position)"
-        # trade_signal < 0 인 경우 (일단은 -1 또는 -2)
-        if (monitor_signal == -1) and (previous_monitor_signal == 0):
-            reason = "Exceed LB from inside(no position)"
-        elif (monitor_signal == -1) and (previous_monitor_signal == 1):
-            reason = "Exceed LB from opposite-outside(long position)"
-        elif (monitor_signal == 0) and (previous_monitor_signal == 1) and (latest_row.close > latest_row.vwap):
-            reason = "Enter UB from outside(long position)"
-        elif (monitor_signal == 0) and (previous_monitor_signal == 1) and (latest_row.close < latest_row.vwap):
-            reason = "Enter VWAP from outside(long position)"
-        
+        if trade_signal == 1:
+            if (monitor_signal == 1) and (previous_monitor_signal == 0):
+                reason = "Exceed UB from inside(no position)"
+            elif (monitor_signal == 1) and (previous_monitor_signal == -1):
+                reason = "Exceed UB from opposite-outside(short position)"
+            elif (monitor_signal == 0) and (previous_monitor_signal == -1) and (latest_row.close < latest_row.vwap):
+                reason = "Enter LB from outside(short position)"
+            elif (monitor_signal == 0) and (previous_monitor_signal == -1) and (latest_row.close > latest_row.vwap):
+                reason = "Enter VWAP from outside(short position)"
+        elif trade_signal == -1:
+            if (monitor_signal == -1) and (previous_monitor_signal == 0):
+                reason = "Exceed LB from inside(no position)"
+            elif (monitor_signal == -1) and (previous_monitor_signal == 1):
+                reason = "Exceed LB from opposite-outside(long position)"
+            elif (monitor_signal == 0) and (previous_monitor_signal == 1) and (latest_row.close > latest_row.vwap):
+                reason = "Enter UB from outside(long position)"
+            elif (monitor_signal == 0) and (previous_monitor_signal == 1) and (latest_row.close < latest_row.vwap):
+                reason = "Enter VWAP from outside(long position)"
+
         return {
-            'monitor_signal': monitor_signal * leverage_ratio,  # (HJ) ADJ: 레버리지 비율 적용
-            'trade_signal': trade_signal * leverage_ratio,  # (HJ) ADJ: 레버리지 비율 적용
+            'monitor_signal': monitor_signal,
+            'trade_signal': trade_signal, 
             'reason': reason,
             'ub': float(latest_row.UB),
             'lb': float(latest_row.LB),

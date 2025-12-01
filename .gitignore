@@ -17,6 +17,12 @@ access_token*.json
 # (HJ) 계좌별 config-<PRODUCT>.json 파일 제외 
 config*.json
 
+# (HJ) Gemini stuff
+.gemini/
+
+# (HJ) VSCode configs
+.vscode/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

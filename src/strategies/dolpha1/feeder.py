@@ -84,7 +84,9 @@ class RealtimeDataCollector(DataFeeder):
                     if not self._is_trading_hours():
                         await asyncio.sleep(60)
                         continue
-                        
+                    
+                    # (HJ) TODO: Q. 반복문 안에서 비동기 wait 데이터 호출 반복하면, 데이터 호출 안되는 정규장 이외시간에 호출대기 task 계속 쌓이는 문제 없나?
+                    # (HJ) TODO: (물론 위에서 if not self._is_trading_hours(): 조건문으로 정규장 시간확인 하기는 하지만, 방어적 프로그래밍 관점에서!)
                     candle_data = await self._fetch_latest_candle(client, auth)
                     if candle_data:
                         await self.save_data(candle_data)
@@ -157,9 +159,13 @@ class RealtimeDataCollector(DataFeeder):
     def _select_completed_candle(self, candles: List[Dict], current_time: str) -> Optional[Dict]:
         if not candles:
             return None
-        if current_time.startswith("1545"):
-            return candles[0]
-        return candles[1] if len(candles) > 1 else candles[0]
+        
+        # (HJ) ADJ: 기존에 응답결과에서 하나 직전 분봉 가져오던 candles[1] 코드를 응답결과 최신 분봉 가져오는 candles[0] 코드로 수정
+        return candles[0]
+        # if current_time.startswith("1545"):
+        #     return candles[0]
+        # ### TODO: 원래 candles[0] 이었는데 candles[1] 로 바꿔서 확인 예정
+        # return candles[1] if len(candles) > 1 else candles[0]   # (HJ) TODO: return candels[0] 되야할 듯 (log_msg 에 "🕐" 시작으로 찍히는 OHLCV 결과가 log 찍히는 시간보다 1분 이전 분봉과 일치)
         
     def _process_candle(self, candle: Dict) -> Dict[str, Any]:
         date_str = candle.get("stck_bsop_date")
@@ -365,8 +371,9 @@ class HistoricalDataCollector(DataFeeder):
                 if not (845 <= hour_min <= 1545):
                     continue
                     
-                if hour_min != 1545:
-                    dt += timedelta(minutes=1)
+                # (HJ) ADJ: 기존에 응답결과에서 하나씩 직전 분봉 저저장하도록 시간 수정하는 timedelta(minutes=1) 코드 제거
+                # if hour_min != 1545:
+                #     dt += timedelta(minutes=1)
                     
                 records.append({
                     "timestamp": dt,

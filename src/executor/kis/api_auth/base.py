@@ -6,22 +6,26 @@ from datetime import datetime, timedelta
 from dataclasses import dataclass
 import re
 
+# TEMP: 패키지 배포시 파이썬 경로추가 코드 제거 후 이하 모듈 임포트에 상대경로 적용
+import os
+import sys
+EXECUTOR_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(EXECUTOR_ROOT)
+
 from services.time_service import TimeService
 
 
-# (HJ) ADJ: 일별 로그파일 생성 및 관리 위한 함수 추가. (90일치 로그파일 보관)
-# (HJ) ADJ: 로거별 세팅을 위해 logger 파라미터 추가
-def setup_logging(config_dir: str):
+def setup_exec_logging(config_dir: str):
     """
     일별 로그 파일을 생성하고 관리합니다.
-    - 로그 파일은 '.log' 디렉터리에 'kis_api_YYYYMMDD.log' 형식으로 저장됩니다.
+    - 로그 파일은 '.log' 디렉터리에 'kis_exe_YYYYMMDD.log' 형식으로 저장됩니다.
     - 로그 파일은 최대 100개까지 유지되며, 가장 오래된 파일부터 삭제됩니다.
     """
     log_dir = os.path.join(config_dir, ".log")
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
 
-    log_files = [f for f in os.listdir(log_dir) if re.match(r"kis_api_\d{8}\.log", f)]
+    log_files = [f for f in os.listdir(log_dir) if re.match(r"kis_exec_\d{8}\.log", f)]
     log_files.sort()
     while len(log_files) >= 100:
         file_to_delete = log_files.pop(0)
@@ -30,7 +34,7 @@ def setup_logging(config_dir: str):
 
     now_kst = TimeService.now_kst_naive()
     today_str = now_kst.date().strftime("%Y%m%d")
-    log_name = f"kis_api_{today_str}.log"
+    log_name = f"kis_exec_{today_str}.log"
     log_file = os.path.join(log_dir, log_name)
 
     logging.basicConfig(
@@ -82,13 +86,15 @@ class KISConfig:
 
 
 class KISAuth:
-    def __init__(self, config: KISConfig, client: httpx.AsyncClient):
+    def __init__(self, config: KISConfig, client: httpx.Client):   # (HJ) ADJ: 비동기 httpx.AsyncClient -> 동기 httpx.Client
         self._config = config
         self._client = client
-        self._token_file = os.path.join(config.config_dir, "access_token-" + self._config.account_number + ".json") # (HJ) ADJ: 계좌별 OAuth 인증요청 따로 해야됨에 따라 인증토큰 관리파일도 계좌별로 따로 생성. (토큰번호는 동일하게 저장되지만, 계좌별로 OAuth 인증요청을 따로 진행해 주어야 해당 토큰을 이용한 API 접근이 허용됨.)
+        self._token_file = os.path.join(config.config_dir, "access_token-" + config.account_number + ".json") # (HJ) ADJ: 계좌별 OAuth 인증요청 따로 해야됨에 따라 인증토큰 관리파일도 계좌별로 따로 생성. (토큰번호는 동일하게 저장되지만, 계좌별로 OAuth 인증요청을 따로 진행해 주어야 해당 토큰을 이용한 API 접근이 허용됨.)
         self._access_token: str | None = None
+        logging.info(f"🔐 Find access token for account: {self._token_file}") # (HJ) DEBUG: 토큰저장경로 확인용
         self._token_expires_at: datetime | None = None
         self._load_token()
+        # self._load_token() # __init__ is not async, so we cannot call async methods from here.
 
     def _load_token(self):
         try:
@@ -102,7 +108,13 @@ class KISAuth:
                         
                         if self._should_refresh_token():
                             self._clear_token()
-                            logging.info("🗑️ Access token will expire within 12 hour - deleted for refresh")
+                            self.get_access_token()
+                            logging.info("🔐 Access token has been refreshed (It will expire within 12 hour)")
+            # (HJ) ADJ: KISAuth 객체 생성 후, access_token json 파일이 없으면 자동 생성
+            else: 
+                self.get_access_token()
+                logging.info("🔐 Access token file not found - created new access token file for the KisTradingAgent instance.")
+                
         except Exception as e:
             logging.warning(f"Failed to load saved token: {e}")
 
@@ -118,9 +130,9 @@ class KISAuth:
         try:
             if os.path.exists(self._token_file):
                 os.remove(self._token_file)
-                logging.info(f"🗑️ Deleted existing access_token.json")
+                logging.info(f"🗑️ Deleted existing token file: {self._token_file}")
         except Exception as e:
-            logging.warning(f"Failed to delete access_token.json: {e}")
+            logging.warning(f"Failed to delete existing token file: {e}")
         
         self._access_token = None
         self._token_expires_at = None
@@ -137,7 +149,8 @@ class KISAuth:
         except Exception as e:
             logging.error(f"Failed to save token: {e}")
 
-    async def get_access_token(self) -> str:
+    # (HJ) ADJ: 동기 메서드로 변경 (datafeeding 과정과 다르게 execution 에서는 토큰 선행확인 후 코드 작동이 가능)
+    def get_access_token(self) -> str:
         if self._should_refresh_token():
             self._clear_token()
         
@@ -151,8 +164,8 @@ class KISAuth:
             "appkey": self._config.app_key, 
             "appsecret": self._config.app_secret
         }
-        response = await self._client.post(url, json=body)
-        response.raise_for_status()
+        response = self._client.post(url, json=body)
+        response.raise_for_status()     # (HJ) 토큰 api 요청에 대한 응답 통신 상탱 확인
         data = response.json()
         
         self._access_token = data.get("access_token")

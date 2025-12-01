@@ -19,7 +19,7 @@ class SignalGenerator:
                  rolling_move: int = 5,
                  band_multiplier: float = 1.0,
                  use_vwap: bool = True,
-                 observe_interval_minutes: int = 15):
+                 observe_interval_minutes: int = 5):
         self.atr_period = atr_period
         self.rolling_move = rolling_move
         self.band_multiplier = band_multiplier
@@ -78,9 +78,8 @@ class SignalGenerator:
     def _calculate_sigma_open(self, df: pd.DataFrame) -> pd.Series:
         df['timestamp_local'] = df['timestamp']
 
-        base_open_price = df.groupby('day')['open'].transform('first')
-        # (HJ) COMMENT: 'min_from_open' 컬럼 내용: 기준시작시간(여기선 08:46) 기준으로부터 '몇 분'(몇 번째)인지 인덱스 계산
-        df['min_from_open'] = ((df['timestamp_local'] - df['timestamp_local'].dt.normalize()) / pd.Timedelta(minutes=1)) - 526  # (HJ) DOCS: 526m == 8h 46m (첫 )
+        base_open_price = df.groupby('day')['open'].transform('first')            
+        df['min_from_open'] = ((df['timestamp_local'] - df['timestamp_local'].dt.normalize()) / pd.Timedelta(minutes=1)) - 526  # 08:46
         df['move_open'] = (df['close'] / base_open_price - 1).abs()
         
         df['sigma_open'] = df.groupby('min_from_open')['move_open'].transform(
@@ -103,9 +102,8 @@ class SignalGenerator:
         
         return df
         
-    def get_latest_signal(self, 
-                          df: pd.DataFrame, 
-                          leverage_ratio: float=1.0) -> Dict[str, Any]:
+    def get_latest_signal(self, df: pd.DataFrame) -> Dict[str, Any]:
+        from datetime import datetime
         
         df_with_features = self.create_features(df)
         
@@ -129,8 +127,13 @@ class SignalGenerator:
                 'ub': None, 'lb': None, 'current_price': None,
                 'is_observe_time': False
             }
-        
+            
+        latest_row = valid_rows.iloc[-1]
         previous_row = valid_rows.iloc[-(1 + self.observe_interval_minutes)]  # (HJ) ADJ: trade_signal 진입 이후 시그널 정지 위한 previous_monitor_signal 계산용 OHLCV 1분봉 데이터 (latest_row 보다 observe_interval_minutes 한 단위(트레이딩 시그널 측정 기준) 이전 분봉)
+        
+        current_time = TimeService.now_kst_naive()
+        is_observe_time = (current_time.minute % self.observe_interval_minutes == 0)
+
         previous_monitor_signal = 0     # (HJ) ADJ: trading_signal 시그널 정지 위한 직전 분봉의 monitor_signal (초기값)
         if previous_row.close > previous_row.UB:    # (HJ) ADJ: previouse_row 는 시그널 없다가 -> latest_row 에 시그널 생겼을 때만으로 수정
             if not self.use_vwap or previous_row.close > previous_row.vwap:
@@ -138,55 +141,44 @@ class SignalGenerator:
         elif previous_row.close < previous_row.LB:    # (HJ) ADJ: previouse_row 는 시그널 없다가 -> latest_row 에 시그널 생겼을 때만으로 수정
             if not self.use_vwap or previous_row.close < previous_row.vwap:
                 previous_monitor_signal = -1
-
-        latest_row = valid_rows.iloc[-1]
+        
         monitor_signal = 0
+        reason = "none"
+        
         if latest_row.close > latest_row.UB:
             if not self.use_vwap or latest_row.close > latest_row.vwap:
                 monitor_signal = 1
+                reason = "band_cross_up"
         elif latest_row.close < latest_row.LB:
             if not self.use_vwap or latest_row.close < latest_row.vwap:
                 monitor_signal = -1
+                reason = "band_cross_down"
         
-        # (HJ) ADJ: trade_signal 결정 (monitor_signal 변화가 있을 때만 trade_signal 발생하도록 수정)
-        # (HJ) TODO: Execution 단(객체)에서 Signal 의 monitor(포지션) 값과 실제 계좌잔고 포지션과 동일한지 항상 체크 필요!
-        # (HJ) TODO: Signal 의 monitor(포지션) 값과 계좌잔고 포지션이 다른 경우 처리방법 고민 후 Execution 단에 반영필요!
+        trade_signal = (monitor_signal - previous_monitor_signal) if is_observe_time else 0     # (HJ) ADJ: (1) signal 진입 시에만 한번 포지션 잡고, (2) signal 탈출 시에만 한번 반대 포지션 잡도록 수정!
+        ### (HJ) DOCS: Execution 단(객체)에서 Signal 의 monitor(포지션) 값과 실제 계좌잔고 포지션과 동일한지 항상 체크 필요!
+        ### (HJ) DOCS: Signal 의 monitor(포지션) 값과 계좌잔고 포지션이 다른 경우 처리방법 고민 후 Execution 단에 반영필요!
         
-        # if (previous_monitor_signal == monitor_signal) or (previous_monitor_signal == 0) or (monitor_signal == 0):
-        #     # (HJ) TOTO: 나중에 레버리지 적용 또는 상황 따른 배팅량 조절 등 고려 시 수정 필요!    
-        if abs(monitor_signal - previous_monitor_signal) == 2:
-            trade_signal = (monitor_signal - previous_monitor_signal) \
-                // abs(monitor_signal - previous_monitor_signal)  # (HJ) ADJ: 기존의 trade_signal 이 2 또는 -2 가 되는 경우 방지 위해 수정
-        else:
-            trade_signal = monitor_signal - previous_monitor_signal
+        # TEMP: 디버깅용
+        # temp_dict = {
+        #     'monitor_signal': monitor_signal,
+        #     'previous_monitor_signal': previous_monitor_signal, 
+        #     'trade_signal': trade_signal, 
+        #     'reason': reason,
+        #     'ub': float(latest_row.UB),
+        #     'lb': float(latest_row.LB),
+        #     'current_price': float(latest_row.close),
+        #     'is_observe_time': is_observe_time,
+        #     'atr': float(latest_row.atr),
+        #     'move_open': float(latest_row.move_open),
+        #     'sigma_open': float(latest_row.sigma_open),
+        #     'vwap': float(latest_row.vwap),
+        #     'min_from_open': float(latest_row.min_from_open)
+        # }
+        # return valid_rows, latest_row, previous_row, temp_dict
 
-        current_time = TimeService.now_kst_naive()
-        is_observe_time = (current_time.minute % self.observe_interval_minutes == 0)
-        
-        # (HJ) ADJ: 포지션 변하는 경우의 8 가지 reason
-        reason = "none"
-        # trade_signal > 0 인 경우 (일단은 1 또는 2)
-        if (monitor_signal == 1) and (previous_monitor_signal == 0):
-            reason = "Exceed UB from inside(no position)"
-        elif (monitor_signal == 1) and (previous_monitor_signal == -1):
-            reason = "Exceed UB from opposite-outside(short position)"
-        elif (monitor_signal == 0) and (previous_monitor_signal == -1) and (latest_row.close < latest_row.vwap):
-            reason = "Enter LB from outside(short position)"
-        elif (monitor_signal == 0) and (previous_monitor_signal == -1) and (latest_row.close > latest_row.vwap):
-            reason = "Enter VWAP from outside(short position)"
-        # trade_signal < 0 인 경우 (일단은 -1 또는 -2)
-        if (monitor_signal == -1) and (previous_monitor_signal == 0):
-            reason = "Exceed LB from inside(no position)"
-        elif (monitor_signal == -1) and (previous_monitor_signal == 1):
-            reason = "Exceed LB from opposite-outside(long position)"
-        elif (monitor_signal == 0) and (previous_monitor_signal == 1) and (latest_row.close > latest_row.vwap):
-            reason = "Enter UB from outside(long position)"
-        elif (monitor_signal == 0) and (previous_monitor_signal == 1) and (latest_row.close < latest_row.vwap):
-            reason = "Enter VWAP from outside(long position)"
-        
         return {
-            'monitor_signal': monitor_signal * leverage_ratio,  # (HJ) ADJ: 레버리지 비율 적용
-            'trade_signal': trade_signal * leverage_ratio,  # (HJ) ADJ: 레버리지 비율 적용
+            'monitor_signal': monitor_signal,
+            'trade_signal': trade_signal, 
             'reason': reason,
             'ub': float(latest_row.UB),
             'lb': float(latest_row.LB),
