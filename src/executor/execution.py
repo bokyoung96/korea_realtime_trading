@@ -372,7 +372,7 @@ async def execute_order(signal: TradingSignal,
                 # 메세지 예시: "매도 106W12 1 계약 at 1446.00 (시장가)"
                 chat_title = "alphawave_dolpha1" if is_real else "alphawave_test" # (HJ) ADJ: (임시) 텔레그램 채팅방 구분용 클래스변수 추가
                 completed_order_tele_msg = (
-                    f"*\[{order_state_summary['상품번호']}\] 주문완료*\n"
+                    f"*[{order_state_summary['상품번호']}] 주문완료*\n"
                     f"체결완료: {order_state_summary['매매구분']} {order_state_summary['체결수량']}\n"
                     f"체결가격: {float(order_state_summary['평균체결가']):.1f} ({order_state_summary['호가유형']})\n"
                     f"접수시간: {order_state_summary['접수시간']}\n"

@@ -29,10 +29,10 @@ from executor.kis.client.domestic_futures.client import KisTradingAgent
 from consts import Constants
 
 
-class Dolpha1Strategy:
+class y:
     def __init__(
         self,
-        symbol: str = "106W12",
+        symbol: str,     # A06603: 코스닥150선물 26년 3월물  # 106W12: 코스닥150선물 25년 12월물
         atr_period: int = 10,
         rolling_move: int = 5,
         band_multiplier: float = 1.0,
@@ -153,43 +153,12 @@ class Dolpha1Strategy:
                             # -> 아래 코드 실행
                                 # 유의. abs(monitor_signal - previous_monitor_signal) == 2 인 경우,
                                 # 유의. signals.py 에서 trading_signal 산정시 1 처리 -> 나중에 보완 필요
-                        if (currnet_time <= self.stock_market_open_time):
-                            if reason_shortcut.startswith("Exceed"):
-                                logging.info(f"🚨 TRADE SIGNAL! {trade_signal} at {current_price:.2f} - {reason}")
-
-                                # (HJ) FEAT: 텔레그램 메시지 전송
-                                signal_time = latest_row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
-                                signal_tele_msg = (
-                                    f"🚨 *DOLPHA1 TRADE SIGNAL*\n"
-                                    f"• Symbol: {self.symbol}\n"
-                                    f"• Time: {signal_time}\n"
-                                    f"• Current Price: {current_price:.2f}\n"
-                                    f"• Upper Band: {ub:.2f}\n"
-                                    f"• Lower Band: {lb:.2f}\n"
-                                    f"• Monitor Signal: {monitor_signal}\n"
-                                    f"• Trade Signal: {trade_signal}\n"
-                                    f"• Reason: {reason_shortcut}"
-                                )
-                                await send_tele(msg=signal_tele_msg, chat_title=self.chat_title)
-
-                                exec_signal = TradingSignal(ticker=self.symbol, 
-                                                            position=np.sign(trade_signal), 
-                                                            volume=abs(trade_signal), 
-                                                            target_price=current_price, 
-                                                            message=reason_shortcut, 
-                                                            target_position=int(monitor_signal), 
-                                                            timestamp=signal_time)
-                                await execute_order(exec_signal, 
-                                                    is_real=self.is_real, 
-                                                    order_method=self.order_method, 
-                                                    rate_limit=self.rate_limit, 
-                                                    logging=logging)
-                            elif reason_shortcut.startswith("Enter"):
-                                logging.info(f"ℹ️ TRADE SIGNAL! (EXCEPTION) {trade_signal} at {current_price:.2f} - {reason}")
+                        if (currnet_time < self.stock_market_open_time):
+                            logging.info(f"ℹ️ TRADE SIGNAL! (EXCEPTION) {trade_signal} at {current_price:.2f} - {reason}")
 
                         # (HJ) ADJ: Trading signal logging 및 Trade execution 작동시간 제약조건 추가 ('08:59' < current_hour_min < '15:29')
                         # (HJ) ADJ: current_hour_min 이 logging 찍히는 TRADE SIGNAL 시간보다 앞서는 것 같아서, '09:00' <= 에서 '08:59' < 으로 조건문 변경
-                        elif self.stock_market_open_time < currnet_time < self.liquidation_hour_min: 
+                        elif self.stock_market_open_time <= currnet_time < self.liquidation_hour_min: 
                             logging.info(f"🚨 TRADE SIGNAL! {trade_signal} at {current_price:.2f} - {reason}")
 
                             # (HJ) FEAT: 텔레그램 메시지 전송
@@ -306,7 +275,7 @@ async def main():
                     raise argparse.ArgumentTypeError(f"argument must be an integer or a float: '{arg_string}'")
 
         parser = argparse.ArgumentParser(prog="dolpha1", add_help=True)
-        parser.add_argument("--symbol", type=str, default="106W12", 
+        parser.add_argument("--symbol", type=str,  
                             help="symbol(ticker) given by exchange")
         parser.add_argument("--atr_period", type=int, default=10, 
                             help=" - ")
