@@ -22,7 +22,7 @@ class DataFeeder:
     def __init__(self, symbol: str = "106W09", table_name: str = "dolpha1"):
         self.symbol = symbol
         self.table_name = table_name
-        self.config = KISConfig(config_path=os.path.join(PROJECT_ROOT, "config.json"))
+        self.config = KISConfig(config_path=os.path.join(PROJECT_ROOT, "config-futures.json"))
         db_config = DatabaseConfig.from_json(config_path=os.path.join(PROJECT_ROOT, "config_db.json"))
         self.db_connection = DatabaseConnection(db_config)
         self._polling_task: Optional[asyncio.Task] = None
