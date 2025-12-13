@@ -202,7 +202,7 @@ if record_timestamp < now_floor:
 
 - 설정 파일
   - `src/config.json`: KIS API 설정, 트랜잭션 ID, 폴링 간격 등
-  - `src/db_config.json`: Postgres 접속/풀 설정
+  - `src/config_db.json`: Postgres 접속/풀 설정
 
 ---
 
@@ -336,7 +336,7 @@ flowchart LR
 }
 ```
 
-- db_config.json
+- config_db.json
 ```json
 {
   "postgres_url": "postgresql://user:pass@host:5432/db",

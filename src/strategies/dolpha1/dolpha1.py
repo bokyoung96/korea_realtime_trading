@@ -44,7 +44,7 @@ class Dolpha1Strategy:
     ):
         self.symbol = symbol
 
-        config_path = os.path.join(PROJECT_ROOT, "config.json")
+        config_path = os.path.join(PROJECT_ROOT, "config-futures.json")
         self.config = KISConfig(config_path=config_path)
 
         self.feeder = RealTimeDataFeeder(symbol)
@@ -260,7 +260,7 @@ class Dolpha1Strategy:
 async def main():
     try:
         logging.getLogger("httpx").setLevel(logging.WARNING)
-        config_path = os.path.join(PROJECT_ROOT, "config.json")
+        config_path = os.path.join(PROJECT_ROOT, "config-futures.json")
         config = KISConfig(config_path)
         setup_logging(config.config_dir)
 

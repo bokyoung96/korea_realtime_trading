@@ -203,7 +203,7 @@ class SignalDatabase:
     def __init__(self, table_name: str = "dolpha1_signal"):
         self.table_name = table_name
         
-        db_config_path = os.path.join(PROJECT_ROOT, "db_config.json")
+        db_config_path = os.path.join(PROJECT_ROOT, "config_db.json")
         db_config = DatabaseConfig.from_json(config_path=db_config_path)
         self.db_connection = DatabaseConnection(db_config)
         

@@ -70,7 +70,7 @@ graph TD
 
 -   `polling_interval`: 매 분 정각 이후 데이터 요청을 시작하기까지의 대기 시간(초). API 서버가 데이터를 준비할 시간을 확보해 데이터 누락을 방지합니다.
 
-#### `db_config.json` (데이터베이스 설정)
+#### `config_db.json` (데이터베이스 설정)
 
 ```json
 {

@@ -66,7 +66,7 @@ class Reader:
 
 class ReaderFactory:
     @classmethod
-    def from_config(cls, db_config_path: str = "db_config.json") -> Reader:
+    def from_config(cls, db_config_path: str = "config_db.json") -> Reader:
         db_config = DatabaseConfig.from_json(db_config_path)
         db = DatabaseConnection(db_config)
         return Reader(db)

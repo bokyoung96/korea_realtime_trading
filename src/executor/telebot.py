@@ -3,7 +3,7 @@ import json
 from telegram import Bot
 
 
-config_path = os.path.join(os.getcwd(), "telegram_config.json")
+config_path = os.path.join(os.getcwd(), "config_telegram.json")
 with open(config_path, 'r', encoding='utf-8') as f:
     config = json.load(f)   # config for telegram bot
 

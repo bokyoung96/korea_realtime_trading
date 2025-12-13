@@ -41,7 +41,7 @@ async def main():
     
     await wait_for_market_open()
     
-    db_config = DatabaseConfig.from_json("db_config.json")
+    db_config = DatabaseConfig.from_json("config_db.json")
     db_connection = DatabaseConnection(db_config)
     data_writer = DataWriter(db_connection)
     
