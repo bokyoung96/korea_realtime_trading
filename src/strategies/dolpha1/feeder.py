@@ -89,7 +89,7 @@ class RealtimeDataCollector(DataFeeder):
                     # (HJ) TODO: (물론 위에서 if not self._is_trading_hours(): 조건문으로 정규장 시간확인 하기는 하지만, 방어적 프로그래밍 관점에서!)
                     candle_data = await self._fetch_latest_candle(client, auth)
                     if candle_data:
-                    await self.save_data(candle_data)
+                        await self.save_data(candle_data)
                         if data_handler:
                             await data_handler(candle_data)
                             
