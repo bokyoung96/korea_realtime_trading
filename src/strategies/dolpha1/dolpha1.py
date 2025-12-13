@@ -29,7 +29,7 @@ from executor.kis.client.domestic_futures.client import KisTradingAgent
 from consts import Constants
 
 
-class y:
+class Dolpha1Strategy:
     def __init__(
         self,
         symbol: str,     # A06603: 코스닥150선물 26년 3월물  # 106W12: 코스닥150선물 25년 12월물
