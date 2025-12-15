@@ -323,9 +323,11 @@ async def main():
         # leverage_ratio = float(leverage_ratio_input) if leverage_ratio_input else 1.0
         # argparse 로 처리함
 
-        user_input = input("📅 Do you want to collect historical data first? (y/n): ").lower().strip()
+        # user_input = input("📅 Do you want to collect historical data first? (y/n): ").lower().strip()
+        user_input = 'y'    # TODO: (TEMP) crontab 실행 위해 임시 설정
         if user_input == 'y':
-            days = input("📅 How many days of data to collect? (default: 15): ").strip()
+            # days = input("📅 How many days of data to collect? (default: 15): ").strip()
+            days = '15'     # TODO: (TEMP) crontab 실행 위해 임시 설정
             days_back = int(days) if days.isdigit() else 15
             
             feeder = RealTimeDataFeeder(symbol=args.symbol)
