@@ -1,2 +1,2 @@
 #!/bin/bash
-/mnt/volumes/alphawave/venv/bin/python3.10 /mnt/volumes/alphawave/dolpha1/korea_realtime_trading/src/strategies/dolpha1/cronjob_test.py
+/home/doutoury/.local/bin/uv run ~/projects/dolpha1/src/strategies/dolpha1/cronjob_test.py

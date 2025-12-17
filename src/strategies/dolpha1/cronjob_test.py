@@ -1,2 +1,2 @@
 import datetime
-print(f"{datetime.datetime.now()}: Hello, Cronjob")
+print(f"{datetime.datetime.now()}: Hello, Crontab!")
