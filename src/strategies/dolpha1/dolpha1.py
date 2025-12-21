@@ -61,17 +61,8 @@ class Dolpha1Strategy:
         self.observe_interval_minutes = observe_interval_minutes
         self.leverage_ratio = leverage_ratio
         
-        # self.open_trading_time = time(hour=9, minute=1)
-        # self.close_trading_time = time(hour=15, minute=29)
-
-        # self.current_datetime = TimeService.now_kst_naive()       # TODO: 코드삭제예정
-        # self.current_date = self.current_datetime.date()      # TODO: 코드삭제예정
         self.futures_market_open_time = Constants.MARKET_HOURS_DERIV_START
-        # self.market_open_datetime = datetime.combine(self.current_date, self.futures_market_open_time)        # TODO: 코드삭제예정
         self.futures_market_close_time = Constants.MARKET_HOURS_DERIV_END
-        # self.market_close_datetime = datetime.combine(self.current_date, self.futures_market_close_time)      # TODO: 코드삭제예정
-        # self.first_trading_datetime = self.market_open_datetime + timedelta(minutes=self.observe_interval_minutes)        # TODO: 코드삭제예정
-        # self.first_trading_time = self.first_trading_datetime.time()      # TODO: 코드삭제예정
         self.stock_market_open_time = Constants.MARKET_HOURS_STOCK_START
         self.liquidation_hour_min = time(hour=15, minute=29)    # 임시: 청산시간은 넌파라매트릭하게 임시로 지정하여 사용
 
@@ -279,7 +270,7 @@ async def main():
                             help="symbol(ticker) given by exchange")
         parser.add_argument("--atr_period", type=int, default=10, 
                             help=" - ")
-        parser.add_argument("--rolling-move", type=int, default=5, 
+        parser.add_argument("--rolling_move", type=int, default=5, 
                             help=" - ")
         parser.add_argument("--band_multiplier", type=float, default=1.0, 
                             help="multiplier to calculate upper and lower band")
