@@ -14,6 +14,62 @@ sys.path.append(PROJECT_ROOT)
 from base import KISAuth, KISConfig
 from services.time_service import TimeService
 from consts import Constants
+
+# TODO: 
+
+# 기존 dolpha1.py 로직 실행 구조
+# feeder.RealtimeDataCollector.start_realtime_feed() 메서드가 
+
+        # dolpha1.py 실행시, 
+        # dolpha1.Dolpha1Strategy.start_realtime_feed() 가 메인으로 실행되고, 
+        # dolpha1.Dolpha1Strategy.start_realtime_feed() 실행시, 
+        # feeder.RealTimeDataFeeder.start_realtime_feed() 가 실행되는데, 
+
+        # feeder.RealTimeDataFeeder.start_realtime_feed() 실행시, 
+        # feeder.RealtimeDataCollector._poll_realtime_data() 가 실행되며, 
+        # feeder.RealtimeDataCollector._poll_realtime_data() 실행시, 
+
+        # while True: 반복문 안에서 
+        # await asyncio.sleep(60) 간격으로 
+
+            # (1-1) 1분봉 KIS API 호출
+            # feeder.RealtimeDataCollector._fetch_latest_candle(client, auth) 실행 (API 요청)
+        
+            # (1-2) DB 에 INSERT 쿼리로 데이터 저장
+            # feeder.RealtimeDataCollector.save_data(candle_data) 실행
+        
+            # (1-3) signal.py 모듈로 매매시그널 계산
+            # dolpha1 에서 콜백함수로 data_handler 에 받은 signal 생성함수 실행
+                # dolpha1.Dolpha1Strategy._get_recent_data() 메서드로 저장된 1분봉 DB 호출 (recent_data)
+                # 이후 signals.SignalGenerator.get_latest_signal(recent_data) 로 매매시그널 계산
+            # dolpha1 에서 생성한 signal 을 signal DB 에 저장
+                # signals.SignalDatabase.save_signal() 메서드로 dolpha1 signal DB 에 저장
+            
+            ### 확인 후 수정: DB
+            ### 1 분봉 테이블 -> 공용 DB 에 적재
+            ### dolpha1 시그널 테이블 -> dolpha1 전략 DB 에 적재
+
+# 향후 dolpha1.py 로직 리팩토링 구조
+
+    # 임시구조
+    # Data pipeline 모듈 (따로 1분 마다 반복문 실행)
+        # (1-1) 1분봉 API 호출
+        # (1-2) 1분봉 DB 저장
+    # dolpha1 전략 시그널 수행 모듈 (따로 1분 마다 반복문 실행?)
+        # (1-1) 1분봉으로 전략 매매 시그널 생성
+        # (1-2) 전략 매매 시그널 DB 저장
+    
+    ### 확인
+    ### DataPipeline 프로세스와 전략 시그널 생성 프로세스 반복작업 수행 시, 
+    ### 각 프로세스 개별 반복문 수행할지, 동일 반복문 안에 각 프로세스 담아서 순차반복 수행할 지 고민!
+
+    ### 고려사항: 
+    ### DataPipeline 프로세스와 시그널 생성 프로세스 반복작업 수행 방법에 고려해야할 사항
+    ### 아래 두 가지 케이스 범용적으로 적용할 수 있는 방법론(모듈) 찾기
+        ### case 1. dolaph1 전략 처럼 동일 시간 간격으로 매매 시그널 생성하는 전략
+        ### case 2. wrbsocket 등으로 실시간 모니터링 중 특정 조건 발생 시 매매 시그널 생성하는 전략
+
+
 from database.connection import DatabaseConnection
 from database.config import DatabaseConfig
 
@@ -91,7 +147,19 @@ class RealtimeDataCollector(DataFeeder):
                     if candle_data:
                         await self.save_data(candle_data)
                         if data_handler:
-                            await data_handler(candle_data)
+                            # (HJ) TODO: dolpha1.py 실행시 
+                            # feeder.RealtimeDataCollector._pool_realtime_data(data_handler) 메서드에 
+                            # data_handler 로 dolpha1.Dolpha1Strategy._check_signal() 이 전달되는데, 
+                                # dolpha1.Dolpha1Strategy._check_signal() 메서드는 
+                                # feeder._fetch_latest_candle() 메서드로 받은 1분봉을 바로 사용하지 않고, 
+                                # 받아온 1분봉 데이터를 feeder.save_date() 메서드로 DB 저장 후, 
+                                # dolpha1.Dolpha1Strategy._get_recent_data() 메서드를 이용해 DB 에서 불러와 사용!
+                            # -> 즉, await data_handler() 로 수정해도 됨! (candle_data 인수 불필요)
+                            # -> 즉, data feeder 로직과 dolpha1 및 signal 로직 분리 실행해도 됨! (단, 순차실행 필요)
+                            
+                            # (HJ) ADJ: data_handler 
+                            # await data_handler(candle_data)
+                            await data_handler()
                             
                     await asyncio.sleep(self.polling_interval)
                     
@@ -145,6 +213,9 @@ class RealtimeDataCollector(DataFeeder):
             logging.info(f"⏳ [{self.symbol}] First run - processing first available candle...")
             
         self._last_processed_time = current_time
+
+        # TEMP: 1분봉 조회결과 확인용
+        # return candles
         
         completed_candle = self._select_completed_candle(candles, current_time)
         if completed_candle:
@@ -161,19 +232,23 @@ class RealtimeDataCollector(DataFeeder):
             return None
         
         # (HJ) ADJ: 기존에 응답결과에서 하나 직전 분봉 가져오던 candles[1] 코드를 응답결과 최신 분봉 가져오는 candles[0] 코드로 수정
-        return candles[0]
-        # if current_time.startswith("1545"):
-        #     return candles[0]
-        # ### TODO: 원래 candles[0] 이었는데 candles[1] 로 바꿔서 확인 예정
-        # return candles[1] if len(candles) > 1 else candles[0]   # (HJ) TODO: return candels[0] 되야할 듯 (log_msg 에 "🕐" 시작으로 찍히는 OHLCV 결과가 log 찍히는 시간보다 1분 이전 분봉과 일치)
+        # (HJ) ADJ: 다시 기존 코드로 되돌림 -> candles[1] 적용
+        # return candles[0]
+        if current_time.startswith("1545"):
+            return candles[0]
+        ### TODO: 원래 candles[0] 이었는데 candles[1] 로 바꿔서 확인 예정
+        return candles[1] if len(candles) > 1 else candles[0]   # (HJ) TODO: return candels[0] 되야할 듯 (log_msg 에 "🕐" 시작으로 찍히는 OHLCV 결과가 log 찍히는 시간보다 1분 이전 분봉과 일치) <- 직전 완성분봉 보고 다음 분 시작과 동시에 진입해야 하므로 이게 맞음.
         
     def _process_candle(self, candle: Dict) -> Dict[str, Any]:
         date_str = candle.get("stck_bsop_date")
         time_str = candle.get("stck_cntg_hour")
         
         timestamp_dt = datetime.strptime(f"{date_str}{time_str}", "%Y%m%d%H%M%S")
-        if time_str != "154500":
-            timestamp_dt += timedelta(minutes=1)
+        # (HJ) TODO: timestamp_dt += timedelta(minutes=1) 코드 제거
+        # if time_str != "154500":
+            # timestamp_dt += timedelta(minutes=1)
+            # timedelta 하기전 timestamp_dt: 매매(시그널 생성) 시점 기준 직전 시점 (실제 분봉 생성된 시점)
+            # timedelta 이후 timestamp_dt: 매매(시그널 생성) 시점 
             
         candle_data = {
             "timestamp": timestamp_dt,
@@ -185,7 +260,7 @@ class RealtimeDataCollector(DataFeeder):
             "volume": int(candle.get("cntg_vol", 0)),
         }
         
-        log_msg = f"🕐 [{self.symbol}] 1m: OHLCV {candle_data['open']:.2f}/{candle_data['high']:.2f}/{candle_data['low']:.2f}/{candle_data['close']:.2f} Vol: {candle_data['volume']:,}"
+        log_msg = f"🕐 [{self.symbol}] 1m [{candle_data['timestamp'].time()}]: OHLCV {candle_data['open']:.2f}/{candle_data['high']:.2f}/{candle_data['low']:.2f}/{candle_data['close']:.2f} Vol: {candle_data['volume']:,}"
         logging.info(log_msg)
         
         return candle_data

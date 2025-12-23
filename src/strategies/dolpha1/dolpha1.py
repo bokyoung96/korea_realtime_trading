@@ -78,11 +78,13 @@ class Dolpha1Strategy:
         await self.signal_database.initialize()
         logging.info("🚀 dolpha1 system initialization complete")
 
+    # (HJ) ADJ: data_handler 인자로 self._on_realtime_data 메서드 대신 self._check_signal 메서드로 변경
     async def start_realtime_feed(self):
-        await self.feeder.start_realtime_feed(data_handler=self._on_realtime_data)
-        
-    async def _on_realtime_data(self, candle_data):
-        await self._check_signal()
+        await self.feeder.start_realtime_feed(data_handler=self._check_signal)
+
+    # (HJ) ADJ: feeder._poll_realtime_data(data_handler) 메서드에서 data_handler(candle_data) 의 candle_data 인수를 받기 위한 목적으로만 만들어진 껍데기 함수. 제거.
+    # async def _on_realtime_data(self, candle_data):
+    #     await self._check_signal()
             
     async def _check_signal(self):
         current_datetime = TimeService.now_kst_naive()
